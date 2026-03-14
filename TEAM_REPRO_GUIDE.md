@@ -37,14 +37,7 @@ pip install -r requirements.txt
 
 ## 3. 구조 실험: ExponentialSmoothing + NLinear + LightGBM
 
-실행 파일:
-- `oil_forecast_academic.py`
-
-실행 명령:
-
-```bash
-python oil_forecast_academic.py
-```
+이 레포에는 결과와 노트북만 남겨두었고, 아래 내용은 구조 실험을 재구현하기 위한 명세다.
 
 ### 3-1. 입력 변수 구성
 
@@ -196,14 +189,7 @@ final_pred = baseline_pred + nlinear_pred + lambda * lgbm_ror_pred
 
 ## 4. Transformer 실험: PatchTST + iTransformer
 
-실행 파일:
-- `oil_transformer_advanced_clean.py`
-
-실행 명령:
-
-```bash
-python oil_transformer_advanced_clean.py
-```
+이 항목도 실행 스크립트가 아니라 재구현 명세로 읽으면 된다.
 
 ### 4-1. 입력 후보 변수 구성
 
@@ -338,14 +324,7 @@ PatchTST baseline 자체의 숫자:
 
 ## 5. PatchTST + NLinear 공정 비교
 
-실행 파일:
-- `run_confirm_patchtst_nlinear.py`
-
-실행 명령:
-
-```bash
-python run_confirm_patchtst_nlinear.py
-```
+이 항목은 transformer framework 안에서 `PatchTST+iTransformer`와 같은 조건으로 다시 비교하는 명세다.
 
 이 비교는 `PatchTST+iTransformer`와 같은 transformer framework 안에서, 2단계 residual model만 `iTransformer`에서 `NLinear`로 바꾼 것이다.
 
@@ -373,14 +352,7 @@ python run_confirm_patchtst_nlinear.py
 
 ## 6. PatchTST baseline을 구조 실험에 넣은 별도 실험
 
-실행 파일:
-- `oil_patchtst_nlinear_lgbm.py`
-
-실행 명령:
-
-```bash
-python oil_patchtst_nlinear_lgbm.py
-```
+이 항목은 stagewise 구조에서 baseline만 PatchTST로 교체한 별도 명세다.
 
 이 실험은 `ExponentialSmoothing + NLinear + LightGBM` 구조에서 baseline만 `PatchTST`로 바꾼 것이다.
 
