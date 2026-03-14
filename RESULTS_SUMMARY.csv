@@ -1,0 +1,5 @@
+Track,Model,Validation_RMSE,Test_RMSE,Test_MAE,Test_MAPE(%),Test_NRMSE(%),Test_R2,Notes
+Structure,ExponentialSmoothing + NLinear + LightGBM,2.712644,1.227534,0.914365,1.470759,1.957985,0.180869,Main stagewise structure model
+Transformer,PatchTST + iTransformer,1.3534,1.230845,0.946035,1.505436,1.963267,0.176443,Best single-split transformer pair
+Professor compare,PatchTST + NLinear,1.430313,1.925139,1.39851,2.213242,3.070703,-1.0147,Same confirmatory setting as PatchTST+iTransformer
+Baseline swap,PatchTST + NLinear + LightGBM,1.534152,1.860934,1.354825,2.153897,2.968293,-0.882559,ES baseline replaced by PatchTST in stagewise framework
