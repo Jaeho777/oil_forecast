@@ -112,7 +112,7 @@ residual_params = {
 - 마지막 열은 최종 채택 모델의 `MAPE - Bench-mark MAPE`로 계산한다.
 - 최종 채택 모델은 `Residual-LGBM`일 수도 있고, `Residual-XGB`, `Residual-NLinear`, 혹은 residual 미적용 실험모델일 수도 있다.
 
-#### 핵심 Leaderboard
+#### 핵심 Leaderboard (ts-cv 평균)
 
 | Target | Baseline Model | Residual Model | RMSE | MAE | MAPE | NRMSE |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
@@ -129,6 +129,23 @@ residual_params = {
 - 결과 요약 바로 아래에 넣는 핵심 표다.
 - `Target | Baseline Model | Residual Model | RMSE | MAE | MAPE | NRMSE` 형식을 고정한다.
 - 일반적으로 `ts-cv 평균 leaderboard`를 넣고, 필요하면 holdout 기준 별도 표를 추가한다.
+
+#### 핵심 Leaderboard (holdout)
+
+| Target | Baseline Model | Residual Model | RMSE | MAE | MAPE | NRMSE |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| WTI Oil | PatchTST | - |  |  |  |  |
+| WTI Oil | PatchTST | NLinear |  |  |  |  |
+| WTI Oil | PatchTST | XGB |  |  |  |  |
+| WTI Oil | PatchTST | LGBM |  |  |  |  |
+| Brent Oil | PatchTST | - |  |  |  |  |
+| Brent Oil | PatchTST | NLinear |  |  |  |  |
+| Brent Oil | PatchTST | XGB |  |  |  |  |
+| Brent Oil | PatchTST | LGBM |  |  |  |  |
+
+작성 규칙:
+- `세부 결과`의 Test Set Metric과 동일한 holdout 수치를 넣는다.
+- `핵심 Leaderboard (ts-cv 평균)`과 값이 다를 수 있으며, 이 경우 모델 선택용 평균 성능과 단일 holdout 성능이 다르다는 뜻이다.
 
 ### 04-02. 세부 결과
 

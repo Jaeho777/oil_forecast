@@ -129,22 +129,9 @@ Final Forecast = PatchTST Forecast + Residual Correction
 시각화:
 - `results/academic_patchtst_residuals/summary_tscv_mape_table.png`
 
-- **최종 holdout MAPE 기준**
+![Summary ts-cv MAPE Table](/Users/jaeholee/Desktop/oil_forecast/results/academic_patchtst_residuals/summary_tscv_mape_table.png)
 
-| Target | Bench-mark: PatchTST (%) | Residual-NLinear (%) | Residual-XGB (%) | Residual-LGBM (%) | holdout 최저오차 모델 | Bench-mark 대비 증감 (%) |
-| --- | ---: | ---: | ---: | ---: | --- | ---: |
-| WTI Oil | 9.834 | 3.881 | 13.632 | 14.221 | PatchTST + NLinear | -5.953 |
-| Brent Oil | 2.701 | 4.212 | 4.602 | 5.554 | PatchTST | 0.000 |
-
-시각화:
-- `results/academic_patchtst_residuals/summary_holdout_mape_table.png`
-
-해석:
-- `ts-cv 평균` 기준으로는 두 타깃 모두 residual 보정 없이 `PatchTST`가 가장 안정적이었다.
-- 다만 `WTI Oil`의 최종 holdout에서는 `PatchTST + NLinear`가 `MAPE`를 `9.834% -> 3.881%`로 크게 낮췄다.
-- `Brent Oil`은 `ts-cv`와 `holdout` 모두에서 residual 보정보다 `PatchTST` 기본모델이 우세했다.
-
-#### 핵심 Leaderboard
+#### 핵심 Leaderboard (ts-cv 평균)
 
 | Target | Baseline Model | Residual Model | RMSE | MAE | MAPE | NRMSE |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
@@ -159,6 +146,47 @@ Final Forecast = PatchTST Forecast + Residual Correction
 
 시각화:
 - `results/academic_patchtst_residuals/tscv_leaderboard.png`
+
+![ts-cv Leaderboard](/Users/jaeholee/Desktop/oil_forecast/results/academic_patchtst_residuals/tscv_leaderboard.png)
+
+- **최종 holdout MAPE 기준**
+
+| Target | Bench-mark: PatchTST (%) | Residual-NLinear (%) | Residual-XGB (%) | Residual-LGBM (%) | holdout 최저오차 모델 | Bench-mark 대비 증감 (%) |
+| --- | ---: | ---: | ---: | ---: | --- | ---: |
+| WTI Oil | 9.834 | 3.881 | 13.632 | 14.221 | PatchTST + NLinear | -5.953 |
+| Brent Oil | 2.701 | 4.212 | 4.602 | 5.554 | PatchTST | 0.000 |
+
+시각화:
+- `results/academic_patchtst_residuals/summary_holdout_mape_table.png`
+
+![Summary Holdout MAPE Table](/Users/jaeholee/Desktop/oil_forecast/results/academic_patchtst_residuals/summary_holdout_mape_table.png)
+
+해석:
+- `ts-cv 평균` 기준으로는 두 타깃 모두 residual 보정 없이 `PatchTST`가 가장 안정적이었다.
+- 다만 `WTI Oil`의 최종 holdout에서는 `PatchTST + NLinear`가 `MAPE`를 `9.834% -> 3.881%`로 크게 낮췄다.
+- `Brent Oil`은 `ts-cv`와 `holdout` 모두에서 residual 보정보다 `PatchTST` 기본모델이 우세했다.
+
+#### 핵심 Leaderboard (holdout)
+
+| Target | Baseline Model | Residual Model | RMSE | MAE | MAPE | NRMSE |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| WTI Oil | PatchTST | - | 5.887 | 5.751 | 9.834 | 10.016 |
+| WTI Oil | PatchTST | NLinear | 2.659 | 2.269 | 3.881 | 4.525 |
+| WTI Oil | PatchTST | XGB | 9.112 | 7.976 | 13.632 | 15.504 |
+| WTI Oil | PatchTST | LGBM | 9.265 | 8.296 | 14.221 | 15.764 |
+| Brent Oil | PatchTST | - | 2.059 | 1.709 | 2.701 | 3.284 |
+| Brent Oil | PatchTST | NLinear | 3.408 | 2.675 | 4.212 | 5.436 |
+| Brent Oil | PatchTST | XGB | 3.383 | 2.887 | 4.602 | 5.395 |
+| Brent Oil | PatchTST | LGBM | 3.940 | 3.474 | 5.554 | 6.285 |
+
+시각화:
+- `results/academic_patchtst_residuals/holdout_leaderboard.png`
+
+![Holdout Leaderboard](/Users/jaeholee/Desktop/oil_forecast/results/academic_patchtst_residuals/holdout_leaderboard.png)
+
+정리:
+- 위 `핵심 Leaderboard (ts-cv 평균)`은 모델 선택용 평균 성능표다.
+- 위 `핵심 Leaderboard (holdout)`과 아래 `세부 결과`는 동일한 holdout 구간 수치이므로 서로 일치해야 한다.
 
 ### 04-02. 세부 결과
 
@@ -179,6 +207,8 @@ Final Forecast = PatchTST Forecast + Residual Correction
 시각화:
 - `results/academic_patchtst_residuals/holdout_metrics_wti_table.png`
 
+![WTI Holdout Metrics Table](/Users/jaeholee/Desktop/oil_forecast/results/academic_patchtst_residuals/holdout_metrics_wti_table.png)
+
 #### Brent Oil
 
 | Model Type | Base Model | Residual Model | RMSE | MAE | MAPE (%) | NRMSE |
@@ -191,7 +221,10 @@ Final Forecast = PatchTST Forecast + Residual Correction
 시각화:
 - `results/academic_patchtst_residuals/holdout_metrics_brent_table.png`
 
+![Brent Holdout Metrics Table](/Users/jaeholee/Desktop/oil_forecast/results/academic_patchtst_residuals/holdout_metrics_brent_table.png)
+
 - **ts-cv leaderboard 표**
+- 위 `핵심 Leaderboard (ts-cv 평균)`과 동일한 표다.
 
 | Target | Base Model | Residual Model | RMSE | MAE | MAPE | NRMSE |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
@@ -207,13 +240,12 @@ Final Forecast = PatchTST Forecast + Residual Correction
 시각화:
 - `results/academic_patchtst_residuals/tscv_leaderboard.png`
 
-- **Plot**
-  - ts-cv leaderboard 표 이미지: `results/academic_patchtst_residuals/tscv_leaderboard.png`
-  - holdout 예측 곡선 이미지: `results/academic_patchtst_residuals/holdout_predictions.png`
-  - 원본 수치 파일:
-    - `results/academic_patchtst_residuals/tscv_leaderboard.csv`
-    - `results/academic_patchtst_residuals/holdout_results.csv`
-    - `results/academic_patchtst_residuals/forecast_predictions.csv`
+![Holdout Forecasts](/Users/jaeholee/Desktop/oil_forecast/results/academic_patchtst_residuals/holdout_predictions.png)
+
+- **원본 수치 파일**
+  - `results/academic_patchtst_residuals/tscv_leaderboard.csv`
+  - `results/academic_patchtst_residuals/holdout_results.csv`
+  - `results/academic_patchtst_residuals/forecast_predictions.csv`
 
 # 05. 결론 및 얻게 된 인사이트
 
