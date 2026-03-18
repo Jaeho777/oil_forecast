@@ -117,6 +117,7 @@ def build_holdout_metrics_table(holdout_df: pd.DataFrame, target: str) -> pd.Dat
 
 def format_leaderboard(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
+    out = out.rename(columns={"Base Model": "Baseline Model"})
     for col in ["RMSE", "MAE", "MAPE", "NRMSE"]:
         out[col] = out[col].map(fmt3)
     return out

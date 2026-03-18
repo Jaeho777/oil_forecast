@@ -144,6 +144,22 @@ Final Forecast = PatchTST Forecast + Residual Correction
 - 다만 `WTI Oil`의 최종 holdout에서는 `PatchTST + NLinear`가 `MAPE`를 `9.834% -> 3.881%`로 크게 낮췄다.
 - `Brent Oil`은 `ts-cv`와 `holdout` 모두에서 residual 보정보다 `PatchTST` 기본모델이 우세했다.
 
+#### 핵심 Leaderboard
+
+| Target | Baseline Model | Residual Model | RMSE | MAE | MAPE | NRMSE |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| WTI Oil | PatchTST | - | 4.566 | 3.914 | 5.502 | 6.392 |
+| WTI Oil | PatchTST | NLinear | 5.586 | 4.897 | 6.897 | 7.843 |
+| WTI Oil | PatchTST | XGB | 6.566 | 5.787 | 7.995 | 9.058 |
+| WTI Oil | PatchTST | LGBM | 6.768 | 5.885 | 8.188 | 9.388 |
+| Brent Oil | PatchTST | - | 4.643 | 4.026 | 5.423 | 6.225 |
+| Brent Oil | PatchTST | NLinear | 5.421 | 4.755 | 6.413 | 7.283 |
+| Brent Oil | PatchTST | XGB | 5.536 | 4.816 | 6.470 | 7.411 |
+| Brent Oil | PatchTST | LGBM | 5.499 | 4.699 | 6.315 | 7.364 |
+
+시각화:
+- `results/academic_patchtst_residuals/tscv_leaderboard.png`
+
 ### 04-02. 세부 결과
 
 ---

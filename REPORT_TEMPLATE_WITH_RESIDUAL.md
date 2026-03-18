@@ -112,6 +112,24 @@ residual_params = {
 - 마지막 열은 최종 채택 모델의 `MAPE - Bench-mark MAPE`로 계산한다.
 - 최종 채택 모델은 `Residual-LGBM`일 수도 있고, `Residual-XGB`, `Residual-NLinear`, 혹은 residual 미적용 실험모델일 수도 있다.
 
+#### 핵심 Leaderboard
+
+| Target | Baseline Model | Residual Model | RMSE | MAE | MAPE | NRMSE |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| WTI Oil | PatchTST | - |  |  |  |  |
+| WTI Oil | PatchTST | NLinear |  |  |  |  |
+| WTI Oil | PatchTST | XGB |  |  |  |  |
+| WTI Oil | PatchTST | LGBM |  |  |  |  |
+| Brent Oil | PatchTST | - |  |  |  |  |
+| Brent Oil | PatchTST | NLinear |  |  |  |  |
+| Brent Oil | PatchTST | XGB |  |  |  |  |
+| Brent Oil | PatchTST | LGBM |  |  |  |  |
+
+작성 규칙:
+- 결과 요약 바로 아래에 넣는 핵심 표다.
+- `Target | Baseline Model | Residual Model | RMSE | MAE | MAPE | NRMSE` 형식을 고정한다.
+- 일반적으로 `ts-cv 평균 leaderboard`를 넣고, 필요하면 holdout 기준 별도 표를 추가한다.
+
 ### 04-02. 세부 결과
 
 ---
