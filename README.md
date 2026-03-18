@@ -39,6 +39,12 @@ python scripts/academic_patchtst_residuals.py
 - `results/academic_patchtst_residuals/holdout_leaderboard.csv`
 - `results/academic_patchtst_residuals/forecast_predictions.csv`
 - `results/academic_patchtst_residuals/config.json`
+- `results/academic_patchtst_residuals/summary_tscv_mape_table.png`
+- `results/academic_patchtst_residuals/summary_holdout_mape_table.png`
+- `results/academic_patchtst_residuals/holdout_metrics_wti_table.png`
+- `results/academic_patchtst_residuals/holdout_metrics_brent_table.png`
+- `results/academic_patchtst_residuals/tscv_leaderboard.png`
+- `results/academic_patchtst_residuals/holdout_leaderboard.png`
 
 보고서 템플릿:
 - `REPORT_TEMPLATE_WITH_RESIDUAL.md`

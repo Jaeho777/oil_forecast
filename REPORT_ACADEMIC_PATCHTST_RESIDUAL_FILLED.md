@@ -126,12 +126,18 @@ Final Forecast = PatchTST Forecast + Residual Correction
 | WTI Oil | 5.502 | 6.897 | 7.995 | 8.188 | PatchTST | 0.000 |
 | Brent Oil | 5.423 | 6.413 | 6.470 | 6.315 | PatchTST | 0.000 |
 
+시각화:
+- `results/academic_patchtst_residuals/summary_tscv_mape_table.png`
+
 - **최종 holdout MAPE 기준**
 
 | Target | Bench-mark: PatchTST (%) | Residual-NLinear (%) | Residual-XGB (%) | Residual-LGBM (%) | holdout 최저오차 모델 | Bench-mark 대비 증감 (%) |
 | --- | ---: | ---: | ---: | ---: | --- | ---: |
 | WTI Oil | 9.834 | 3.881 | 13.632 | 14.221 | PatchTST + NLinear | -5.953 |
 | Brent Oil | 2.701 | 4.212 | 4.602 | 5.554 | PatchTST | 0.000 |
+
+시각화:
+- `results/academic_patchtst_residuals/summary_holdout_mape_table.png`
 
 해석:
 - `ts-cv 평균` 기준으로는 두 타깃 모두 residual 보정 없이 `PatchTST`가 가장 안정적이었다.
@@ -154,6 +160,9 @@ Final Forecast = PatchTST Forecast + Residual Correction
 | Residual Correction | PatchTST | XGB | 9.112 | 7.976 | 13.632 | 15.504 |
 | Residual Correction | PatchTST | LGBM | 9.265 | 8.296 | 14.221 | 15.764 |
 
+시각화:
+- `results/academic_patchtst_residuals/holdout_metrics_wti_table.png`
+
 #### Brent Oil
 
 | Model Type | Base Model | Residual Model | RMSE | MAE | MAPE (%) | NRMSE |
@@ -162,6 +171,9 @@ Final Forecast = PatchTST Forecast + Residual Correction
 | Residual Correction | PatchTST | NLinear | 3.408 | 2.675 | 4.212 | 5.436 |
 | Residual Correction | PatchTST | XGB | 3.383 | 2.887 | 4.602 | 5.395 |
 | Residual Correction | PatchTST | LGBM | 3.940 | 3.474 | 5.554 | 6.285 |
+
+시각화:
+- `results/academic_patchtst_residuals/holdout_metrics_brent_table.png`
 
 - **ts-cv leaderboard 표**
 
@@ -175,6 +187,9 @@ Final Forecast = PatchTST Forecast + Residual Correction
 | Brent Oil | PatchTST | NLinear | 5.421 | 4.755 | 6.413 | 7.283 |
 | Brent Oil | PatchTST | XGB | 5.536 | 4.816 | 6.470 | 7.411 |
 | Brent Oil | PatchTST | LGBM | 5.499 | 4.699 | 6.315 | 7.364 |
+
+시각화:
+- `results/academic_patchtst_residuals/tscv_leaderboard.png`
 
 - **Plot**
   - ts-cv leaderboard 표 이미지: `results/academic_patchtst_residuals/tscv_leaderboard.png`
