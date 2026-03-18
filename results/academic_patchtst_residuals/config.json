@@ -1,0 +1,52 @@
+{
+  "data_path": "data_weekly_260120.csv",
+  "output_dir": "results/academic_patchtst_residuals",
+  "input_size": 48,
+  "horizon": 12,
+  "step_size": 4,
+  "number_of_windows": 24,
+  "final_holdout": 12,
+  "season_length": 52,
+  "seed": 42,
+  "max_windows": null,
+  "run_holdout": true,
+  "patchtst": {
+    "hidden_size": 128,
+    "attention_heads": 16,
+    "linear_hidden_size": 256,
+    "patch_len": 16,
+    "stride": 8,
+    "dropout": 0.2,
+    "encoder_layers": 3,
+    "attn_dropout": 0.0,
+    "fc_dropout": 0.2,
+    "max_steps": 5000,
+    "learning_rate": 0.0001,
+    "scaler_type": "identity",
+    "batch_size": 32,
+    "weight_decay": 0.0001,
+    "eval_interval": 50,
+    "patience_steps": 400
+  },
+  "residual_nlinear": {
+    "learning_rate": 0.001,
+    "max_steps": 2000,
+    "batch_size": 32,
+    "weight_decay": 0.0,
+    "eval_interval": 50,
+    "patience_steps": 300
+  },
+  "xgb": {
+    "n_estimators": 400,
+    "learning_rate": 0.03
+  },
+  "lgbm": {
+    "n_estimators": 400,
+    "learning_rate": 0.03
+  },
+  "targets": {
+    "WTI Oil": "Com_CrudeOil",
+    "Brent Oil": "Com_BrentCrudeOil"
+  },
+  "device": "cpu"
+}
