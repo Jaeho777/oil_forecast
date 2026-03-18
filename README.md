@@ -50,6 +50,44 @@ python scripts/academic_patchtst_residuals.py
 - `REPORT_TEMPLATE_WITH_RESIDUAL.md`
 - residual 보정모델 열이 포함된 본문 표/leaderboard 표 양식을 제공한다.
 
+## 새 다변량·외생변수 학계식 프로토콜
+- `scripts/academic_multivariate_exog_patchtst_residuals.py`
+- 기존 multivariate/exogenous notebook의 feature engineering 흐름을 유지하면서 `expanding-window ts-cv 24개 + final holdout 12주`로 재평가한다.
+- 모든 설명변수에는 기존 설정대로 `shift(1)`을 적용한다.
+- `WTI Oil`, `Brent Oil`을 각각 별도 타깃으로 평가한다.
+- 평가 모델:
+  - `PatchTST`
+  - `PatchTST + NLinear`
+  - `PatchTST + XGB`
+  - `PatchTST + LGBM`
+- 원천 외생변수 `22개`와 파생 후보 `33개`를 합친 `55개` 후보 피처에서 window별 `SHAP + TimeSeriesSplit` feature selection을 수행한다.
+
+실행 예시:
+
+```bash
+python scripts/academic_multivariate_exog_patchtst_residuals.py
+python scripts/render_academic_result_tables.py --result-dir results/academic_multivariate_exog_patchtst_residuals
+```
+
+결과 저장 위치:
+- `results/academic_multivariate_exog_patchtst_residuals/window_results.csv`
+- `results/academic_multivariate_exog_patchtst_residuals/feature_selection_log.csv`
+- `results/academic_multivariate_exog_patchtst_residuals/tscv_summary.csv`
+- `results/academic_multivariate_exog_patchtst_residuals/tscv_leaderboard.csv`
+- `results/academic_multivariate_exog_patchtst_residuals/holdout_results.csv`
+- `results/academic_multivariate_exog_patchtst_residuals/holdout_leaderboard.csv`
+- `results/academic_multivariate_exog_patchtst_residuals/forecast_predictions.csv`
+- `results/academic_multivariate_exog_patchtst_residuals/summary_tscv_mape_table.png`
+- `results/academic_multivariate_exog_patchtst_residuals/summary_holdout_mape_table.png`
+- `results/academic_multivariate_exog_patchtst_residuals/holdout_metrics_wti_table.png`
+- `results/academic_multivariate_exog_patchtst_residuals/holdout_metrics_brent_table.png`
+- `results/academic_multivariate_exog_patchtst_residuals/tscv_leaderboard.png`
+- `results/academic_multivariate_exog_patchtst_residuals/holdout_leaderboard.png`
+- `results/academic_multivariate_exog_patchtst_residuals/holdout_predictions.png`
+
+보고서:
+- `REPORT_ACADEMIC_MULTIVARIATE_EXOG_PATCHTST_RESIDUAL_FILLED.md`
+
 ## 포함 내용
 - 구조 실험: `ExponentialSmoothing + NLinear + LightGBM`
 - Transformer 실험: `PatchTST + iTransformer`

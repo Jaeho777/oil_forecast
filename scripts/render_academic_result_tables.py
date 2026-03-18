@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 import os
 from pathlib import Path
 
@@ -14,7 +15,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-RESULT_DIR = Path("results/academic_patchtst_residuals")
 MODEL_ORDER = ["PatchTST", "PatchTST+NLinear", "PatchTST+XGB", "PatchTST+LGBM"]
 RESIDUAL_ORDER = ["-", "NLinear", "XGB", "LGBM"]
 
@@ -123,11 +123,63 @@ def format_leaderboard(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def render_holdout_prediction_plot(pred_df: pd.DataFrame, output_path: Path) -> None:
+    holdout = pred_df[pred_df["window"] == "holdout"].copy()
+    if holdout.empty:
+        return
+
+    targets = list(holdout["target"].drop_duplicates())
+    fig, axes = plt.subplots(len(targets), 1, figsize=(12, 4.5 * len(targets)))
+    if len(targets) == 1:
+        axes = [axes]
+
+    for ax, target in zip(axes, targets):
+        sub = holdout[holdout["target"] == target].copy()
+        sub["ds"] = pd.to_datetime(sub["ds"])
+        actual = sub[["ds", "actual"]].drop_duplicates().sort_values("ds")
+        ax.plot(actual["ds"], actual["actual"], label="Actual", color="black", linewidth=2.0)
+
+        for model_name in MODEL_ORDER:
+            model_sub = sub[sub["model"] == model_name].sort_values("ds")
+            if model_sub.empty:
+                continue
+            ax.plot(
+                model_sub["ds"],
+                model_sub["prediction"],
+                label=model_label(model_name),
+                linewidth=1.8,
+            )
+
+        ax.set_title(target)
+        ax.set_ylabel("Price")
+        ax.grid(alpha=0.25, linestyle="--")
+        ax.legend(loc="best", fontsize=9)
+
+    axes[-1].set_xlabel("Date")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Render academic result table images.")
+    parser.add_argument(
+        "--result-dir",
+        default="results/academic_patchtst_residuals",
+        help="Directory containing the experiment CSV outputs.",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
-    tscv_summary = pd.read_csv(RESULT_DIR / "tscv_summary.csv")
-    holdout_results = pd.read_csv(RESULT_DIR / "holdout_results.csv")
-    tscv_leaderboard = pd.read_csv(RESULT_DIR / "tscv_leaderboard.csv")
-    holdout_leaderboard = pd.read_csv(RESULT_DIR / "holdout_leaderboard.csv")
+    args = parse_args()
+    result_dir = Path(args.result_dir)
+
+    tscv_summary = pd.read_csv(result_dir / "tscv_summary.csv")
+    holdout_results = pd.read_csv(result_dir / "holdout_results.csv")
+    tscv_leaderboard = pd.read_csv(result_dir / "tscv_leaderboard.csv")
+    holdout_leaderboard = pd.read_csv(result_dir / "holdout_leaderboard.csv")
+    forecast_predictions = pd.read_csv(result_dir / "forecast_predictions.csv")
 
     summary_tscv = build_summary_table(
         source_df=tscv_summary,
@@ -147,47 +199,52 @@ def main() -> None:
     render_table_png(
         summary_tscv,
         "Summary Table: ts-cv Average MAPE",
-        RESULT_DIR / "summary_tscv_mape_table.png",
+        result_dir / "summary_tscv_mape_table.png",
         fontsize=10,
     )
     render_table_png(
         summary_holdout,
         "Summary Table: Holdout MAPE",
-        RESULT_DIR / "summary_holdout_mape_table.png",
+        result_dir / "summary_holdout_mape_table.png",
         fontsize=10,
     )
     render_table_png(
         holdout_wti,
         "WTI Oil Holdout Metrics",
-        RESULT_DIR / "holdout_metrics_wti_table.png",
+        result_dir / "holdout_metrics_wti_table.png",
         fontsize=10,
     )
     render_table_png(
         holdout_brent,
         "Brent Oil Holdout Metrics",
-        RESULT_DIR / "holdout_metrics_brent_table.png",
+        result_dir / "holdout_metrics_brent_table.png",
         fontsize=10,
     )
     render_table_png(
         format_leaderboard(tscv_leaderboard),
         "ts-cv Leaderboard Across PatchTST Residual Variants",
-        RESULT_DIR / "tscv_leaderboard.png",
+        result_dir / "tscv_leaderboard.png",
         fontsize=10,
     )
     render_table_png(
         format_leaderboard(holdout_leaderboard),
         "Holdout Leaderboard Across PatchTST Residual Variants",
-        RESULT_DIR / "holdout_leaderboard.png",
+        result_dir / "holdout_leaderboard.png",
         fontsize=10,
+    )
+    render_holdout_prediction_plot(
+        forecast_predictions,
+        result_dir / "holdout_predictions.png",
     )
 
     print("Saved table visuals:")
-    print(RESULT_DIR / "summary_tscv_mape_table.png")
-    print(RESULT_DIR / "summary_holdout_mape_table.png")
-    print(RESULT_DIR / "holdout_metrics_wti_table.png")
-    print(RESULT_DIR / "holdout_metrics_brent_table.png")
-    print(RESULT_DIR / "tscv_leaderboard.png")
-    print(RESULT_DIR / "holdout_leaderboard.png")
+    print(result_dir / "summary_tscv_mape_table.png")
+    print(result_dir / "summary_holdout_mape_table.png")
+    print(result_dir / "holdout_metrics_wti_table.png")
+    print(result_dir / "holdout_metrics_brent_table.png")
+    print(result_dir / "tscv_leaderboard.png")
+    print(result_dir / "holdout_leaderboard.png")
+    print(result_dir / "holdout_predictions.png")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,65 @@
+{
+  "data_path": "data_weekly_260120.csv",
+  "output_dir": "results/academic_multivariate_exog_patchtst_residuals",
+  "input_size": 24,
+  "horizon": 12,
+  "step_size": 4,
+  "number_of_windows": 24,
+  "final_holdout": 12,
+  "seed": 42,
+  "max_windows": null,
+  "run_holdout": true,
+  "feature_candidates": [
+    10,
+    15,
+    20,
+    25,
+    30,
+    40,
+    55
+  ],
+  "shap_estimators": 300,
+  "shap_learning_rate": 0.05,
+  "shap_num_leaves": 31,
+  "cv_estimators": 200,
+  "cv_learning_rate": 0.05,
+  "cv_num_leaves": 20,
+  "patchtst": {
+    "hidden_size": 64,
+    "attention_heads": 4,
+    "linear_hidden_size": 256,
+    "patch_len": 4,
+    "stride": 2,
+    "dropout": 0.2,
+    "encoder_layers": 2,
+    "attn_dropout": 0.0,
+    "fc_dropout": 0.2,
+    "epochs": 60,
+    "patience": 12,
+    "learning_rate": 0.001,
+    "batch_size": 32,
+    "weight_decay": 0.0001,
+    "scaler_type": "robust"
+  },
+  "residual_nlinear": {
+    "hidden_size": 64,
+    "epochs": 60,
+    "patience": 12,
+    "learning_rate": 0.001,
+    "batch_size": 32,
+    "weight_decay": 1e-05
+  },
+  "xgb": {
+    "n_estimators": 300,
+    "learning_rate": 0.03
+  },
+  "lgbm": {
+    "n_estimators": 300,
+    "learning_rate": 0.03
+  },
+  "targets": {
+    "WTI Oil": "Com_CrudeOil",
+    "Brent Oil": "Com_BrentCrudeOil"
+  },
+  "device": "cpu"
+}
