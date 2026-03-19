@@ -59,21 +59,22 @@ BASE_FEATURES = [
 
 @dataclass
 class PatchTSTConfig:
-    hidden_size: int = 64
-    attention_heads: int = 4
+    hidden_size: int = 128
+    attention_heads: int = 16
     linear_hidden_size: int = 256
-    patch_len: int = 4
-    stride: int = 2
+    patch_len: int = 16
+    stride: int = 8
     dropout: float = 0.2
-    encoder_layers: int = 2
+    encoder_layers: int = 3
     attn_dropout: float = 0.0
     fc_dropout: float = 0.2
-    epochs: int = 60
-    patience: int = 12
-    learning_rate: float = 1e-3
+    max_steps: int = 5000
+    learning_rate: float = 1e-4
     batch_size: int = 32
     weight_decay: float = 1e-4
-    scaler_type: str = "robust"
+    eval_interval: int = 50
+    patience_steps: int = 400
+    scaler_type: str = "identity"
 
 
 @dataclass
@@ -96,7 +97,7 @@ class TreeConfig:
 class ExperimentConfig:
     data_path: str = "data_weekly_260120.csv"
     output_dir: str = "results/academic_multivariate_exog_patchtst_residuals"
-    input_size: int = 24
+    input_size: int = 48
     horizon: int = 12
     step_size: int = 4
     number_of_windows: int = 24
@@ -137,15 +138,20 @@ def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(math.sqrt(mean_squared_error(y_true, y_pred)))
 
 
+def mean_normalized_scale(y_true: np.ndarray) -> float:
+    return float(np.clip(np.abs(np.mean(y_true)), a_min=1e-8, a_max=None))
+
+
 def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
     y_true = np.asarray(y_true, dtype=np.float64)
     y_pred = np.asarray(y_pred, dtype=np.float64)
     denom = np.clip(np.abs(y_true), a_min=1e-8, a_max=None)
+    scale = mean_normalized_scale(y_true)
     return {
         "RMSE": rmse(y_true, y_pred),
         "MAE": float(mean_absolute_error(y_true, y_pred)),
         "MAPE": float(np.mean(np.abs((y_true - y_pred) / denom)) * 100.0),
-        "NRMSE": float(rmse(y_true, y_pred) / np.mean(y_true) * 100.0),
+        "NRMSE": float(rmse(y_true, y_pred) / scale * 100.0),
     }
 
 
@@ -257,6 +263,42 @@ def make_eval_sequences(X_full: np.ndarray, start_idx: int, end_idx: int, seq_le
     return np.asarray(seqs, dtype=np.float32)
 
 
+class PatchTSTBlock(nn.Module):
+    def __init__(
+        self,
+        hidden_size: int,
+        attention_heads: int,
+        linear_hidden_size: int,
+        dropout: float,
+        attn_dropout: float,
+        fc_dropout: float,
+    ) -> None:
+        super().__init__()
+        self.norm1 = nn.LayerNorm(hidden_size)
+        self.attn = nn.MultiheadAttention(
+            embed_dim=hidden_size,
+            num_heads=attention_heads,
+            dropout=attn_dropout,
+            batch_first=True,
+        )
+        self.drop1 = nn.Dropout(dropout)
+        self.norm2 = nn.LayerNorm(hidden_size)
+        self.ffn = nn.Sequential(
+            nn.Linear(hidden_size, linear_hidden_size),
+            nn.GELU(),
+            nn.Dropout(fc_dropout),
+            nn.Linear(linear_hidden_size, hidden_size),
+        )
+        self.drop2 = nn.Dropout(dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        attn_input = self.norm1(x)
+        attn_output, _ = self.attn(attn_input, attn_input, attn_input, need_weights=False)
+        x = x + self.drop1(attn_output)
+        ffn_input = self.norm2(x)
+        return x + self.drop2(self.ffn(ffn_input))
+
+
 class PatchTSTOneStep(nn.Module):
     def __init__(self, seq_len: int, n_features: int, config: PatchTSTConfig) -> None:
         super().__init__()
@@ -265,21 +307,31 @@ class PatchTSTOneStep(nn.Module):
         if seq_len < self.patch_len:
             raise ValueError("seq_len must be >= patch_len.")
 
-        n_patches = (seq_len - self.patch_len) // self.stride + 1
+        self.n_patches = (seq_len - self.patch_len) // self.stride + 1
         self.proj = nn.Linear(self.patch_len * n_features, config.hidden_size)
-        self.cls = nn.Parameter(torch.randn(1, 1, config.hidden_size) * 0.02)
-        self.pos = nn.Parameter(torch.randn(1, n_patches + 1, config.hidden_size) * 0.02)
-        layer = nn.TransformerEncoderLayer(
-            d_model=config.hidden_size,
-            nhead=config.attention_heads,
-            dim_feedforward=config.linear_hidden_size,
-            dropout=config.dropout,
-            activation="gelu",
-            batch_first=True,
+        self.pos = nn.Parameter(torch.randn(1, self.n_patches, config.hidden_size) * 0.02)
+        self.input_dropout = nn.Dropout(config.dropout)
+        self.blocks = nn.ModuleList(
+            [
+                PatchTSTBlock(
+                    hidden_size=config.hidden_size,
+                    attention_heads=config.attention_heads,
+                    linear_hidden_size=config.linear_hidden_size,
+                    dropout=config.dropout,
+                    attn_dropout=config.attn_dropout,
+                    fc_dropout=config.fc_dropout,
+                )
+                for _ in range(config.encoder_layers)
+            ]
         )
-        self.encoder = nn.TransformerEncoder(layer, config.encoder_layers)
-        self.head = nn.Linear(config.hidden_size, 1)
-        self.dropout = nn.Dropout(config.fc_dropout)
+        self.final_norm = nn.LayerNorm(config.hidden_size)
+        self.head = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(self.n_patches * config.hidden_size, config.linear_hidden_size),
+            nn.GELU(),
+            nn.Dropout(config.fc_dropout),
+            nn.Linear(config.linear_hidden_size, 1),
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         batch = x.size(0)
@@ -287,9 +339,11 @@ class PatchTSTOneStep(nn.Module):
         for start in range(0, x.size(1) - self.patch_len + 1, self.stride):
             patches.append(x[:, start : start + self.patch_len, :].reshape(batch, -1))
         z = self.proj(torch.stack(patches, dim=1))
-        z = torch.cat([self.cls.expand(batch, -1, -1), z], dim=1) + self.pos
-        z = self.encoder(z)
-        return self.head(self.dropout(z[:, 0])).squeeze(-1)
+        z = self.input_dropout(z + self.pos)
+        for block in self.blocks:
+            z = block(z)
+        z = self.final_norm(z)
+        return self.head(z).squeeze(-1)
 
 
 class NLinearResidualExog(nn.Module):
@@ -318,6 +372,79 @@ def split_train_val(
         raise ValueError("Not enough sequence samples for inner validation split.")
     split_at = len(X) - holdout_size
     return X[:split_at], y[:split_at], X[split_at:], y[split_at:]
+
+
+def iterate_minibatches(
+    X: np.ndarray,
+    y: np.ndarray,
+    batch_size: int,
+    rng: np.random.Generator,
+):
+    indices = np.arange(len(X))
+    while True:
+        rng.shuffle(indices)
+        for start in range(0, len(indices), batch_size):
+            batch_idx = indices[start : start + batch_size]
+            yield X[batch_idx], y[batch_idx]
+
+
+def train_patchtst_model(
+    model: nn.Module,
+    X: np.ndarray,
+    y: np.ndarray,
+    config: PatchTSTConfig,
+    seed: int,
+    device: torch.device,
+) -> nn.Module:
+    Xtr, ytr, Xva, yva = split_train_val(X, y, holdout_size=max(12, len(X) // 10))
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=config.learning_rate,
+        weight_decay=config.weight_decay,
+    )
+    criterion = nn.MSELoss()
+    Xva_tensor = torch.from_numpy(Xva).to(device)
+    yva_tensor = torch.from_numpy(yva).to(device)
+
+    set_seed(seed)
+    model.to(device)
+    model.train()
+    rng = np.random.default_rng(seed)
+    train_iter = iterate_minibatches(Xtr, ytr, min(config.batch_size, len(Xtr)), rng)
+
+    best_state = None
+    best_val = float("inf")
+    best_step = 0
+
+    for step in range(1, config.max_steps + 1):
+        xb, yb = next(train_iter)
+        xb_tensor = torch.from_numpy(xb).to(device)
+        yb_tensor = torch.from_numpy(yb).to(device)
+
+        optimizer.zero_grad(set_to_none=True)
+        loss = criterion(model(xb_tensor), yb_tensor)
+        loss.backward()
+        nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        optimizer.step()
+
+        if step % config.eval_interval == 0 or step == 1 or step == config.max_steps:
+            model.eval()
+            with torch.no_grad():
+                val_loss = criterion(model(Xva_tensor), yva_tensor).item()
+            if val_loss < best_val:
+                best_val = val_loss
+                best_step = step
+                best_state = {
+                    name: tensor.detach().cpu().clone()
+                    for name, tensor in model.state_dict().items()
+                }
+            model.train()
+            if step - best_step >= config.patience_steps:
+                break
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
+    return model.eval()
 
 
 def train_torch_model(
@@ -598,19 +725,26 @@ def run_single_window(
         nan=0.0,
     )
 
-    scaler_x = RobustScaler()
-    scaler_x.fit(X_window_raw[:train_end])
-    X_window_sc = scaler_x.transform(X_window_raw).astype(np.float32)
-
-    y_mean = float(y_train.mean())
-    y_std = float(y_train.std())
-    if y_std == 0:
+    if config.patchtst.scaler_type == "robust":
+        scaler_x = RobustScaler()
+        scaler_x.fit(X_window_raw[:train_end])
+        X_window_sc = scaler_x.transform(X_window_raw).astype(np.float32)
+        y_mean = float(y_train.mean())
+        y_std = float(y_train.std())
+        if y_std == 0:
+            y_std = 1.0
+        y_train_model = ((y_train - y_mean) / y_std).astype(np.float32)
+    elif config.patchtst.scaler_type == "identity":
+        X_window_sc = X_window_raw.astype(np.float32)
+        y_mean = 0.0
         y_std = 1.0
-    y_train_n = ((y_train - y_mean) / y_std).astype(np.float32)
+        y_train_model = y_train.astype(np.float32)
+    else:
+        raise ValueError(f"Unsupported scaler_type: {config.patchtst.scaler_type}")
 
     Xtr_seq, ytr_seq = make_seq_to_one_sequences(
         X_window_sc[:train_end],
-        y_train_n,
+        y_train_model,
         seq_len=config.input_size,
     )
     Xeval_seq = make_eval_sequences(
@@ -620,20 +754,17 @@ def run_single_window(
         seq_len=config.input_size,
     )
 
+    set_seed(config.seed + train_end)
     baseline_model = PatchTSTOneStep(
         seq_len=config.input_size,
         n_features=Xtr_seq.shape[2],
         config=config.patchtst,
     )
-    baseline_model = train_torch_model(
+    baseline_model = train_patchtst_model(
         model=baseline_model,
         X=Xtr_seq,
         y=ytr_seq,
-        epochs=config.patchtst.epochs,
-        patience=config.patchtst.patience,
-        batch_size=config.patchtst.batch_size,
-        learning_rate=config.patchtst.learning_rate,
-        weight_decay=config.patchtst.weight_decay,
+        config=config.patchtst,
         seed=config.seed + train_end,
         device=device,
     )
@@ -664,6 +795,7 @@ def run_single_window(
 
     resid_train_target_n = (ytr_seq - base_train_pred_n).astype(np.float32)
 
+    set_seed(config.seed + 1000 + train_end)
     nlinear_model = NLinearResidualExog(
         seq_len=config.input_size,
         n_features=Xtr_seq.shape[2],
@@ -872,6 +1004,14 @@ def run_experiment(config: ExperimentConfig) -> None:
     payload = asdict(config)
     payload["targets"] = TARGETS
     payload["device"] = str(device)
+    payload["nrmse_definition"] = "RMSE / abs(mean(y_true)) * 100"
+    payload["data_start"] = dates.iloc[0].strftime("%Y-%m-%d")
+    payload["data_end"] = dates.iloc[-1].strftime("%Y-%m-%d")
+    payload["initial_train_end"] = dates.iloc[cv_train_ends[0] - 1].strftime("%Y-%m-%d")
+    payload["tscv_eval_start"] = dates.iloc[cv_train_ends[0]].strftime("%Y-%m-%d")
+    payload["tscv_eval_end"] = dates.iloc[cv_train_ends[-1] + config.horizon - 1].strftime("%Y-%m-%d")
+    payload["holdout_start"] = dates.iloc[holdout_train_end].strftime("%Y-%m-%d")
+    payload["holdout_end"] = dates.iloc[-1].strftime("%Y-%m-%d")
     with (out_dir / "config.json").open("w", encoding="utf-8") as fp:
         json.dump(payload, fp, ensure_ascii=False, indent=2)
 
@@ -900,9 +1040,23 @@ def parse_args() -> ExperimentConfig:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-windows", type=int, default=None)
     parser.add_argument("--skip-holdout", action="store_true")
-    parser.add_argument("--patch-epochs", type=int, default=60)
+    parser.add_argument("--patch-max-steps", type=int, default=5000)
     parser.add_argument("--resid-epochs", type=int, default=60)
+    parser.add_argument(
+        "--allow-exploratory-updated-exogenous",
+        action="store_true",
+        help=(
+            "Acknowledge that this script uses updated exogenous inputs inside the forecast "
+            "horizon and should be treated as exploratory, not as a strict 48->12 direct benchmark."
+        ),
+    )
     args = parser.parse_args()
+    if not args.allow_exploratory_updated_exogenous:
+        raise SystemExit(
+            "This multivariate/exogenous script is exploratory because it updates exogenous inputs "
+            "inside the forecast horizon. Re-run with "
+            "--allow-exploratory-updated-exogenous only when you explicitly want that behavior."
+        )
 
     cfg = ExperimentConfig(
         data_path=args.data_path,
@@ -911,7 +1065,7 @@ def parse_args() -> ExperimentConfig:
         max_windows=args.max_windows,
         run_holdout=not args.skip_holdout,
     )
-    cfg.patchtst.epochs = args.patch_epochs
+    cfg.patchtst.max_steps = args.patch_max_steps
     cfg.residual_nlinear.epochs = args.resid_epochs
     return cfg
 

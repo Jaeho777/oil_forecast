@@ -1,7 +1,7 @@
 {
   "data_path": "data_weekly_260120.csv",
   "output_dir": "results/academic_multivariate_exog_patchtst_residuals",
-  "input_size": 24,
+  "input_size": 48,
   "horizon": 12,
   "step_size": 4,
   "number_of_windows": 24,
@@ -25,21 +25,22 @@
   "cv_learning_rate": 0.05,
   "cv_num_leaves": 20,
   "patchtst": {
-    "hidden_size": 64,
-    "attention_heads": 4,
+    "hidden_size": 128,
+    "attention_heads": 16,
     "linear_hidden_size": 256,
-    "patch_len": 4,
-    "stride": 2,
+    "patch_len": 16,
+    "stride": 8,
     "dropout": 0.2,
-    "encoder_layers": 2,
+    "encoder_layers": 3,
     "attn_dropout": 0.0,
     "fc_dropout": 0.2,
-    "epochs": 60,
-    "patience": 12,
-    "learning_rate": 0.001,
+    "max_steps": 5000,
+    "learning_rate": 0.0001,
     "batch_size": 32,
     "weight_decay": 0.0001,
-    "scaler_type": "robust"
+    "eval_interval": 50,
+    "patience_steps": 400,
+    "scaler_type": "identity"
   },
   "residual_nlinear": {
     "hidden_size": 64,
@@ -61,5 +62,13 @@
     "WTI Oil": "Com_CrudeOil",
     "Brent Oil": "Com_BrentCrudeOil"
   },
-  "device": "cpu"
+  "device": "cpu",
+  "nrmse_definition": "RMSE / abs(mean(y_true)) * 100",
+  "data_start": "2013-04-01",
+  "data_end": "2026-01-12",
+  "initial_train_end": "2023-10-23",
+  "tscv_eval_start": "2023-10-30",
+  "tscv_eval_end": "2025-10-20",
+  "holdout_start": "2025-10-27",
+  "holdout_end": "2026-01-12"
 }

@@ -1,3 +1,9 @@
+# Exploratory Note
+
+> 이 문서는 updated exogenous를 허용한 exploratory 결과입니다.  
+> strict `48 -> 12 direct` benchmark와 동일한 leaderboard로 해석하지 않습니다.  
+> strict protocol 제출/공유용 기준본은 [REPORT_ACADEMIC_VALIDATED_CLEAN.md](/Users/jaeholee/Desktop/oil_forecast/REPORT_ACADEMIC_VALIDATED_CLEAN.md)를 사용합니다.
+
 # 01. 핵심쟁점
 
 ---
@@ -60,26 +66,31 @@
   - 총 후보 피처는 `55개`이며, 기존 multivariate/exogenous 설정과 동일하게 모든 설명변수에는 `shift(1)`을 적용했다.
   - 각 window마다 `LightGBM SHAP ranking + TimeSeriesSplit(5)`로 최적 피처 개수를 선택했다.
     - 후보 개수: `[10, 15, 20, 25, 30, 40, 55]`
-    - 평균 선택 개수: `WTI 14.8개`, `Brent 12.2개`
+    - 평균 선택 개수: `WTI 27.9개`, `Brent 27.9개`
 - **모델 세팅**
   - 기본모델 `PatchTST`
 
 ```python
 patchtst_params = {
-    "input_size": 24,
-    "hidden_size": 64,
-    "attention_heads": 4,
+    "input_size": 48,
+    "hidden_size": 128,
+    "attention_heads": 16,
     "linear_hidden_size": 256,
-    "patch_len": 4,
-    "stride": 2,
+    "patch_len": 16,
+    "stride": 8,
     "dropout": 0.2,
-    "encoder_layers": 2,
-    "learning_rate": 0.001,
-    "epochs": 60,
-    "patience": 12,
-    "scaler_type": "robust",
+    "encoder_layers": 3,
+    "attn_dropout": 0.0,
+    "fc_dropout": 0.2,
+    "learning_rate": 0.0001,
+    "max_steps": 5000,
+    "scaler_type": "identity",
 }
 ```
+
+- **지표 정의**
+  - `RMSE`, `MAE`, `MAPE`는 일반적인 정의를 사용하였다.
+  - `NRMSE`는 본 exploratory 보고서에서 `RMSE / abs(mean(y_true)) * 100`으로 계산하였다.
 
   - Residual 보정모델 `NLinear`
 
@@ -123,8 +134,8 @@ lgbm_params = {
 ---
 
 - 기존 multivariate/exogenous notebook의 feature engineering 흐름을 유지하되, 평가 프로토콜은 `expanding-window ts-cv 24개 + final holdout 12주`로 통일했다.
-- 각 window마다 학습 구간만 사용해 `SHAP ranking -> 피처 개수 선택 -> RobustScaler fit` 순으로 전처리를 수행했다.
-- `PatchTST`는 선택된 다변량 시퀀스(`24주 x 선택 피처`)를 입력으로 받아 `1-step seq-to-one` 방식으로 학습했고, 평가 시에는 rolling 방식으로 `12주`를 예측했다.
+- 각 window마다 학습 구간만 사용해 `SHAP ranking -> 피처 개수 선택` 순으로 전처리를 수행했고, PatchTST 입력 스케일링은 `identity`로 두었다.
+- `PatchTST`는 선택된 다변량 시퀀스(`48주 x 선택 피처`)를 입력으로 받아 `1-step seq-to-one` 방식으로 학습했고, 평가 시에는 rolling 방식으로 `12주`를 예측했다.
 - residual 보정모델은 `PatchTST`의 train fitted residual을 학습 대상으로 두고 동일 입력 시퀀스에서 residual을 예측했다.
 - 최종 예측식은 아래와 같다.
 
@@ -138,8 +149,8 @@ Final Forecast = PatchTST Forecast + Residual Correction
   - `PatchTST + XGB`
   - `PatchTST + LGBM`
 - window별 승자 빈도는 아래와 같았다.
-  - `WTI Oil`: `PatchTST+XGB 14회`, `PatchTST+NLinear 4회`, `PatchTST+LGBM 4회`, `PatchTST 3회`
-  - `Brent Oil`: `PatchTST+NLinear 9회`, `PatchTST+LGBM 8회`, `PatchTST+XGB 6회`, `PatchTST 2회`
+  - `WTI Oil`: `PatchTST+XGB 11회`, `PatchTST+NLinear 11회`, `PatchTST+LGBM 2회`, `PatchTST 1회`
+  - `Brent Oil`: `PatchTST+XGB 12회`, `PatchTST+NLinear 6회`, `PatchTST+LGBM 4회`, `PatchTST 3회`
 - 다만 최종 모델 선택은 단순 win count가 아니라 `ts-cv 평균 성능`을 기준으로 수행했다.
 
 # 04. 실험(모델링) 결과
@@ -152,8 +163,8 @@ Final Forecast = PatchTST Forecast + Residual Correction
 
 | Target | Bench-mark: PatchTST (%) | Residual-NLinear (%) | Residual-XGB (%) | Residual-LGBM (%) | ts-cv 채택 모델 | Bench-mark 대비 증감 (%) |
 | --- | ---: | ---: | ---: | ---: | --- | ---: |
-| WTI Oil | 9.528 | 8.814 | 6.943 | 7.247 | PatchTST + XGB | -2.586 |
-| Brent Oil | 9.467 | 8.692 | 7.120 | 7.351 | PatchTST + XGB | -2.346 |
+| WTI Oil | 8.202 | 5.709 | 5.160 | 5.677 | PatchTST + XGB | -3.042 |
+| Brent Oil | 9.433 | 7.236 | 5.062 | 5.874 | PatchTST + XGB | -4.372 |
 
 시각화:
 - `results/academic_multivariate_exog_patchtst_residuals/summary_tscv_mape_table.png`
@@ -164,14 +175,14 @@ Final Forecast = PatchTST Forecast + Residual Correction
 
 | Target | Baseline Model | Residual Model | RMSE | MAE | MAPE | NRMSE |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| WTI Oil | PatchTST | - | 7.455 | 6.794 | 9.528 | 10.441 |
-| WTI Oil | PatchTST | NLinear | 6.893 | 6.318 | 8.814 | 9.626 |
-| WTI Oil | PatchTST | XGB | 5.610 | 4.875 | 6.943 | 7.953 |
-| WTI Oil | PatchTST | LGBM | 5.942 | 5.095 | 7.247 | 8.423 |
-| Brent Oil | PatchTST | - | 7.960 | 7.288 | 9.467 | 10.381 |
-| Brent Oil | PatchTST | NLinear | 7.394 | 6.691 | 8.692 | 9.658 |
-| Brent Oil | PatchTST | XGB | 6.209 | 5.392 | 7.120 | 8.215 |
-| Brent Oil | PatchTST | LGBM | 6.352 | 5.544 | 7.351 | 8.419 |
+| WTI Oil | PatchTST | - | 6.353 | 5.777 | 8.202 | 8.935 |
+| WTI Oil | PatchTST | NLinear | 4.719 | 4.116 | 5.709 | 6.581 |
+| WTI Oil | PatchTST | XGB | 4.355 | 3.686 | 5.160 | 6.105 |
+| WTI Oil | PatchTST | LGBM | 4.864 | 4.059 | 5.677 | 6.804 |
+| Brent Oil | PatchTST | - | 7.469 | 6.946 | 9.433 | 10.043 |
+| Brent Oil | PatchTST | NLinear | 5.887 | 5.354 | 7.236 | 7.892 |
+| Brent Oil | PatchTST | XGB | 4.298 | 3.724 | 5.062 | 5.774 |
+| Brent Oil | PatchTST | LGBM | 4.916 | 4.304 | 5.874 | 6.618 |
 
 시각화:
 - `results/academic_multivariate_exog_patchtst_residuals/tscv_leaderboard.png`
@@ -182,8 +193,8 @@ Final Forecast = PatchTST Forecast + Residual Correction
 
 | Target | Bench-mark: PatchTST (%) | Residual-NLinear (%) | Residual-XGB (%) | Residual-LGBM (%) | holdout 최저오차 모델 | Bench-mark 대비 증감 (%) |
 | --- | ---: | ---: | ---: | ---: | --- | ---: |
-| WTI Oil | 4.440 | 4.061 | 2.432 | 3.256 | PatchTST + XGB | -2.008 |
-| Brent Oil | 9.660 | 10.164 | 4.728 | 4.814 | PatchTST + XGB | -4.933 |
+| WTI Oil | 14.924 | 9.060 | 2.764 | 3.843 | PatchTST + XGB | -12.160 |
+| Brent Oil | 11.336 | 5.940 | 2.055 | 2.731 | PatchTST + XGB | -9.281 |
 
 시각화:
 - `results/academic_multivariate_exog_patchtst_residuals/summary_holdout_mape_table.png`
@@ -192,22 +203,22 @@ Final Forecast = PatchTST Forecast + Residual Correction
 
 해석:
 - `ts-cv 평균` 기준으로는 두 타깃 모두 `PatchTST + XGB`가 가장 안정적으로 낮은 오차를 보였다.
-- `WTI Oil`은 기본 `PatchTST` 대비 `MAPE 9.528% -> 6.943%`, `holdout 4.440% -> 2.432%`로 개선됐다.
-- `Brent Oil`은 기본 `PatchTST` 대비 `MAPE 9.467% -> 7.120%`, `holdout 9.660% -> 4.728%`로 개선폭이 더 컸다.
+- `WTI Oil`은 기본 `PatchTST` 대비 `MAPE 8.202% -> 5.160%`, `holdout 14.924% -> 2.764%`로 개선됐다.
+- `Brent Oil`은 기본 `PatchTST` 대비 `MAPE 9.433% -> 5.062%`, `holdout 11.336% -> 2.055%`로 개선폭이 더 컸다.
 - 따라서 multivariate/exogenous 설정에서는 residual correction을 선택적 옵션이 아니라 실질적인 성능 향상 단계로 볼 근거가 생겼고, 그중 `XGB`가 가장 일관됐다.
 
 #### 핵심 Leaderboard (holdout)
 
 | Target | Baseline Model | Residual Model | RMSE | MAE | MAPE | NRMSE |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| WTI Oil | PatchTST | - | 2.872 | 2.600 | 4.440 | 4.886 |
-| WTI Oil | PatchTST | NLinear | 2.721 | 2.375 | 4.061 | 4.630 |
-| WTI Oil | PatchTST | XGB | 1.752 | 1.420 | 2.432 | 2.982 |
-| WTI Oil | PatchTST | LGBM | 2.268 | 1.915 | 3.256 | 3.860 |
-| Brent Oil | PatchTST | - | 6.197 | 6.031 | 9.660 | 9.884 |
-| Brent Oil | PatchTST | NLinear | 6.560 | 6.344 | 10.164 | 10.463 |
-| Brent Oil | PatchTST | XGB | 3.211 | 2.939 | 4.728 | 5.121 |
-| Brent Oil | PatchTST | LGBM | 3.370 | 2.991 | 4.814 | 5.375 |
+| WTI Oil | PatchTST | - | 8.828 | 8.741 | 14.924 | 15.021 |
+| WTI Oil | PatchTST | NLinear | 5.432 | 5.309 | 9.060 | 9.242 |
+| WTI Oil | PatchTST | XGB | 1.903 | 1.616 | 2.764 | 3.237 |
+| WTI Oil | PatchTST | LGBM | 2.434 | 2.250 | 3.843 | 4.142 |
+| Brent Oil | PatchTST | - | 7.199 | 7.075 | 11.336 | 11.483 |
+| Brent Oil | PatchTST | NLinear | 3.954 | 3.721 | 5.940 | 6.307 |
+| Brent Oil | PatchTST | XGB | 1.626 | 1.289 | 2.055 | 2.594 |
+| Brent Oil | PatchTST | LGBM | 2.053 | 1.716 | 2.731 | 3.274 |
 
 시각화:
 - `results/academic_multivariate_exog_patchtst_residuals/holdout_leaderboard.png`
@@ -229,10 +240,10 @@ Final Forecast = PatchTST Forecast + Residual Correction
 
 | Model Type | Base Model | Residual Model | RMSE | MAE | MAPE (%) | NRMSE |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| Bench-mark | PatchTST | - | 2.872 | 2.600 | 4.440 | 4.886 |
-| Residual Correction | PatchTST | NLinear | 2.721 | 2.375 | 4.061 | 4.630 |
-| Residual Correction | PatchTST | XGB | 1.752 | 1.420 | 2.432 | 2.982 |
-| Residual Correction | PatchTST | LGBM | 2.268 | 1.915 | 3.256 | 3.860 |
+| Bench-mark | PatchTST | - | 8.828 | 8.741 | 14.924 | 15.021 |
+| Residual Correction | PatchTST | NLinear | 5.432 | 5.309 | 9.060 | 9.242 |
+| Residual Correction | PatchTST | XGB | 1.903 | 1.616 | 2.764 | 3.237 |
+| Residual Correction | PatchTST | LGBM | 2.434 | 2.250 | 3.843 | 4.142 |
 
 시각화:
 - `results/academic_multivariate_exog_patchtst_residuals/holdout_metrics_wti_table.png`
@@ -243,10 +254,10 @@ Final Forecast = PatchTST Forecast + Residual Correction
 
 | Model Type | Base Model | Residual Model | RMSE | MAE | MAPE (%) | NRMSE |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| Bench-mark | PatchTST | - | 6.197 | 6.031 | 9.660 | 9.884 |
-| Residual Correction | PatchTST | NLinear | 6.560 | 6.344 | 10.164 | 10.463 |
-| Residual Correction | PatchTST | XGB | 3.211 | 2.939 | 4.728 | 5.121 |
-| Residual Correction | PatchTST | LGBM | 3.370 | 2.991 | 4.814 | 5.375 |
+| Bench-mark | PatchTST | - | 7.199 | 7.075 | 11.336 | 11.483 |
+| Residual Correction | PatchTST | NLinear | 3.954 | 3.721 | 5.940 | 6.307 |
+| Residual Correction | PatchTST | XGB | 1.626 | 1.289 | 2.055 | 2.594 |
+| Residual Correction | PatchTST | LGBM | 2.053 | 1.716 | 2.731 | 3.274 |
 
 시각화:
 - `results/academic_multivariate_exog_patchtst_residuals/holdout_metrics_brent_table.png`
@@ -258,14 +269,14 @@ Final Forecast = PatchTST Forecast + Residual Correction
 
 | Target | Base Model | Residual Model | RMSE | MAE | MAPE | NRMSE |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| WTI Oil | PatchTST | - | 7.455 | 6.794 | 9.528 | 10.441 |
-| WTI Oil | PatchTST | NLinear | 6.893 | 6.318 | 8.814 | 9.626 |
-| WTI Oil | PatchTST | XGB | 5.610 | 4.875 | 6.943 | 7.953 |
-| WTI Oil | PatchTST | LGBM | 5.942 | 5.095 | 7.247 | 8.423 |
-| Brent Oil | PatchTST | - | 7.960 | 7.288 | 9.467 | 10.381 |
-| Brent Oil | PatchTST | NLinear | 7.394 | 6.691 | 8.692 | 9.658 |
-| Brent Oil | PatchTST | XGB | 6.209 | 5.392 | 7.120 | 8.215 |
-| Brent Oil | PatchTST | LGBM | 6.352 | 5.544 | 7.351 | 8.419 |
+| WTI Oil | PatchTST | - | 6.353 | 5.777 | 8.202 | 8.935 |
+| WTI Oil | PatchTST | NLinear | 4.719 | 4.116 | 5.709 | 6.581 |
+| WTI Oil | PatchTST | XGB | 4.355 | 3.686 | 5.160 | 6.105 |
+| WTI Oil | PatchTST | LGBM | 4.864 | 4.059 | 5.677 | 6.804 |
+| Brent Oil | PatchTST | - | 7.469 | 6.946 | 9.433 | 10.043 |
+| Brent Oil | PatchTST | NLinear | 5.887 | 5.354 | 7.236 | 7.892 |
+| Brent Oil | PatchTST | XGB | 4.298 | 3.724 | 5.062 | 5.774 |
+| Brent Oil | PatchTST | LGBM | 4.916 | 4.304 | 5.874 | 6.618 |
 
 시각화:
 - `results/academic_multivariate_exog_patchtst_residuals/tscv_leaderboard.png`
@@ -287,8 +298,8 @@ Final Forecast = PatchTST Forecast + Residual Correction
 
 ---
 
-- multivariate/exogenous 설정에서는 단변량 실험과 달리 residual correction이 두 타깃 모두에서 의미 있는 성능 개선을 보였다.
-- `PatchTST + XGB`는 `ts-cv 평균`과 `holdout` 모두에서 `WTI Oil`, `Brent Oil`의 최저 오차를 기록했다. 즉 이번 설정에서는 가장 일관된 최종 채택 후보다.
+- multivariate/exogenous exploratory 설정에서는 단변량 strict 결과와 달리 residual correction이 두 타깃 모두에서 큰 성능 개선을 보였다.
+- `PatchTST + XGB`는 `ts-cv 평균`과 `holdout` 모두에서 `WTI Oil`, `Brent Oil`의 최저 오차를 기록했다. 즉 이번 exploratory 설정에서는 가장 일관된 최종 후보였다.
 - `NLinear`는 일부 window에서 승리했지만 평균 성능과 holdout에서는 `XGB`보다 약했다. residual 구조가 비선형적이고 외생변수 상호작용이 강하다는 신호로 볼 수 있다.
 - `LGBM`도 전반적으로 baseline보다 개선됐지만, 평균과 holdout 모두 `XGB`보다 한 단계 아래였다.
 - 선택 빈도가 높았던 변수는 `Com_Coal`, `Com_Gasoline`, `Com_Gasoline_ma12r`, `Com_PalmOil`, `EX_USD_KRW`, `Idx_SnPVIX`, `Ratio_Gold_Oil`, `Spread_Crack`였고, Brent에서는 `Bonds_US_3M_ret`와 `Bonds_US_10Y`도 자주 선택됐다. 즉 상품가격 공행성, 위험지수, 환율, 금리 스프레드가 residual correction에도 핵심적이었다.

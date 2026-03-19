@@ -74,6 +74,7 @@ class ExperimentConfig:
     number_of_windows: int = 24
     final_holdout: int = 12
     season_length: int = 52
+    residual_calibration_windows: int = 104
     seed: int = 42
     max_windows: int | None = None
     run_holdout: bool = True
@@ -103,15 +104,22 @@ def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(math.sqrt(mean_squared_error(y_true, y_pred)))
 
 
+def mean_normalized_scale(y_true: np.ndarray) -> float:
+    # Keep the report's mean-normalized NRMSE definition, but guard against
+    # sign flips or near-zero denominators.
+    return float(np.clip(np.abs(np.mean(y_true)), a_min=1e-8, a_max=None))
+
+
 def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
     y_true = np.asarray(y_true, dtype=np.float64)
     y_pred = np.asarray(y_pred, dtype=np.float64)
     denom = np.clip(np.abs(y_true), a_min=1e-8, a_max=None)
+    scale = mean_normalized_scale(y_true)
     return {
         "RMSE": rmse(y_true, y_pred),
         "MAE": float(mean_absolute_error(y_true, y_pred)),
         "MAPE": float(np.mean(np.abs((y_true - y_pred) / denom)) * 100.0),
-        "NRMSE": float(rmse(y_true, y_pred) / np.mean(y_true) * 100.0),
+        "NRMSE": float(rmse(y_true, y_pred) / scale * 100.0),
     }
 
 
@@ -157,7 +165,10 @@ def split_train_val(
     val_size = max(horizon, len(X) // 10)
     val_size = min(val_size, len(X) - 1)
     split_at = len(X) - val_size
-    return X[:split_at], Y[:split_at], X[split_at:], Y[split_at:]
+    # Leave a small embargo so the training windows do not share target
+    # timestamps with the validation windows used for early stopping.
+    train_end = max(1, split_at - (horizon - 1))
+    return X[:train_end], Y[:train_end], X[split_at:], Y[split_at:]
 
 
 class PatchTSTBlock(nn.Module):
@@ -403,16 +414,14 @@ class DirectTreeMultiOutput:
         return np.column_stack(preds)
 
 
-def fit_patchtst(
-    train_series: np.ndarray,
+def fit_patchtst_from_windows(
+    X_train: np.ndarray,
+    Y_train: np.ndarray,
     config: ExperimentConfig,
     device: torch.device,
-) -> tuple[PatchTSTForecaster, np.ndarray]:
-    X_train, Y_train = make_supervised_windows(
-        train_series,
-        input_size=config.input_size,
-        horizon=config.horizon,
-    )
+    seed: int,
+) -> PatchTSTForecaster:
+    set_seed(seed)
     model = PatchTSTForecaster(
         input_size=config.input_size,
         horizon=config.horizon,
@@ -429,41 +438,90 @@ def fit_patchtst(
         eval_interval=config.patchtst.eval_interval,
         patience_steps=config.patchtst.patience_steps,
         horizon=config.horizon,
-        seed=config.seed,
+        seed=seed,
         device=device,
     )
-    return model, X_train
+    return model
 
 
-def make_fitted_residual_series(
-    model: PatchTSTForecaster,
+def fit_patchtst(
     train_series: np.ndarray,
-    train_windows: np.ndarray,
     config: ExperimentConfig,
     device: torch.device,
+    seed: int,
+) -> tuple[PatchTSTForecaster, np.ndarray, np.ndarray]:
+    X_train, Y_train = make_supervised_windows(
+        train_series,
+        input_size=config.input_size,
+        horizon=config.horizon,
+    )
+    model = fit_patchtst_from_windows(
+        X_train=X_train,
+        Y_train=Y_train,
+        config=config,
+        device=device,
+        seed=seed,
+    )
+    return model, X_train, Y_train
+
+
+def make_oof_residual_series(
+    train_series: np.ndarray,
+    config: ExperimentConfig,
+    device: torch.device,
+    seed: int,
 ) -> np.ndarray:
+    X_all, Y_all = make_supervised_windows(
+        train_series,
+        input_size=config.input_size,
+        horizon=config.horizon,
+    )
+    min_train_windows = max(4, config.horizon)
+    max_calibration = len(X_all) - min_train_windows
+    calibration_windows = min(config.residual_calibration_windows, max_calibration)
+    if calibration_windows < config.input_size + 1:
+        raise ValueError(
+            "Not enough windows to build an out-of-sample residual calibration series."
+        )
+
+    split_at = len(X_all) - calibration_windows
+    calibration_model = fit_patchtst_from_windows(
+        X_train=X_all[:split_at],
+        Y_train=Y_all[:split_at],
+        config=config,
+        device=device,
+        seed=seed + 17,
+    )
     window_preds = predict_torch_model(
-        model=model,
-        X=train_windows,
+        model=calibration_model,
+        X=X_all[split_at:],
         device=device,
         batch_size=max(128, config.patchtst.batch_size),
     )
     fitted_sum = np.zeros(len(train_series), dtype=np.float64)
     fitted_count = np.zeros(len(train_series), dtype=np.float64)
 
-    for idx, pred in enumerate(window_preds):
+    for local_idx, pred in enumerate(window_preds):
+        idx = split_at + local_idx
         start = idx + config.input_size
         end = start + config.horizon
         fitted_sum[start:end] += pred
         fitted_count[start:end] += 1.0
 
+    valid_start = split_at + config.input_size
     valid_mask = fitted_count > 0
-    if not np.all(valid_mask[config.input_size:]):
-        raise RuntimeError("Failed to create a complete fitted residual series.")
+    if not np.all(valid_mask[valid_start:]):
+        raise RuntimeError("Failed to create a complete out-of-sample residual series.")
 
     fitted_values = fitted_sum[valid_mask] / fitted_count[valid_mask]
     actual_values = train_series[valid_mask]
-    return (actual_values - fitted_values).astype(np.float32)
+    residual_series = (actual_values - fitted_values).astype(np.float32)
+    min_residual_len = config.input_size + config.horizon
+    if len(residual_series) < min_residual_len:
+        raise ValueError(
+            f"Residual calibration series is too short: need {min_residual_len}, got {len(residual_series)}."
+        )
+    return residual_series
 
 
 def predict_patchtst_window(
@@ -486,12 +544,14 @@ def forecast_nlinear_residual(
     residual_series: np.ndarray,
     config: ExperimentConfig,
     device: torch.device,
+    seed: int,
 ) -> np.ndarray:
     X_resid, Y_resid = make_supervised_windows(
         residual_series,
         input_size=config.input_size,
         horizon=config.horizon,
     )
+    set_seed(seed)
     model = NLinearResidualForecaster(
         input_size=config.input_size,
         horizon=config.horizon,
@@ -507,7 +567,7 @@ def forecast_nlinear_residual(
         eval_interval=config.residual_nlinear.eval_interval,
         patience_steps=config.residual_nlinear.patience_steps,
         horizon=config.horizon,
-        seed=config.seed + 101,
+        seed=seed,
         device=device,
     )
     last_residual_window = residual_series[-config.input_size :].astype(np.float32)[None, :]
@@ -546,6 +606,8 @@ def window_result_row(
     model_name: str,
     y_true: np.ndarray,
     y_pred: np.ndarray,
+    residual_series_length: int | None = None,
+    residual_supervised_samples: int | None = None,
 ) -> dict[str, object]:
     metrics = compute_metrics(y_true, y_pred)
     base_model, residual_model = split_model_components(model_name)
@@ -558,6 +620,8 @@ def window_result_row(
         "model": model_name,
         "base_model": base_model,
         "residual_model": residual_model,
+        "residual_series_length": residual_series_length,
+        "residual_supervised_samples": residual_supervised_samples,
         **metrics,
     }
 
@@ -621,15 +685,20 @@ def run_single_window(
     )
     forecast_dates = dates.iloc[train_end : train_end + config.horizon].reset_index(drop=True)
 
-    baseline_model, baseline_train_windows = fit_patchtst(train_values, config, device)
-    baseline_forecast = predict_patchtst_window(baseline_model, train_values, config, device)
-    residual_series = make_fitted_residual_series(
-        model=baseline_model,
+    baseline_model, _, _ = fit_patchtst(
         train_series=train_values,
-        train_windows=baseline_train_windows,
         config=config,
         device=device,
+        seed=config.seed + train_end,
     )
+    baseline_forecast = predict_patchtst_window(baseline_model, train_values, config, device)
+    residual_series = make_oof_residual_series(
+        train_series=train_values,
+        config=config,
+        device=device,
+        seed=config.seed + train_end,
+    )
+    residual_supervised_samples = len(residual_series) - config.input_size - config.horizon + 1
 
     rows = [
         window_result_row(
@@ -640,6 +709,8 @@ def run_single_window(
             model_name="PatchTST",
             y_true=test_values,
             y_pred=baseline_forecast,
+            residual_series_length=len(residual_series),
+            residual_supervised_samples=residual_supervised_samples,
         )
     ]
     pred_rows = prediction_rows(
@@ -651,7 +722,12 @@ def run_single_window(
         y_pred=baseline_forecast,
     )
 
-    nlinear_resid = forecast_nlinear_residual(residual_series, config, device)
+    nlinear_resid = forecast_nlinear_residual(
+        residual_series,
+        config,
+        device,
+        seed=config.seed + train_end + 101,
+    )
     xgb_resid = forecast_tree_residual("XGB", residual_series, config)
     lgbm_resid = forecast_tree_residual("LGBM", residual_series, config)
 
@@ -671,6 +747,8 @@ def run_single_window(
                 model_name=model_name,
                 y_true=test_values,
                 y_pred=forecast,
+                residual_series_length=len(residual_series),
+                residual_supervised_samples=residual_supervised_samples,
             )
         )
         pred_rows.extend(
@@ -873,6 +951,14 @@ def run_experiment(config: ExperimentConfig) -> None:
     config_payload = asdict(config)
     config_payload["targets"] = TARGETS
     config_payload["device"] = str(device)
+    config_payload["nrmse_definition"] = "RMSE / abs(mean(y_true)) * 100"
+    config_payload["data_start"] = dates.iloc[0].strftime("%Y-%m-%d")
+    config_payload["data_end"] = dates.iloc[-1].strftime("%Y-%m-%d")
+    config_payload["initial_train_end"] = dates.iloc[cv_train_ends[0] - 1].strftime("%Y-%m-%d")
+    config_payload["tscv_eval_start"] = dates.iloc[cv_train_ends[0]].strftime("%Y-%m-%d")
+    config_payload["tscv_eval_end"] = dates.iloc[cv_train_ends[-1] + config.horizon - 1].strftime("%Y-%m-%d")
+    config_payload["holdout_start"] = dates.iloc[holdout_train_end].strftime("%Y-%m-%d")
+    config_payload["holdout_end"] = dates.iloc[-1].strftime("%Y-%m-%d")
     with (out_dir / "config.json").open("w", encoding="utf-8") as fp:
         json.dump(config_payload, fp, ensure_ascii=False, indent=2)
 

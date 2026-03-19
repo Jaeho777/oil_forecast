@@ -7,6 +7,7 @@
   "number_of_windows": 24,
   "final_holdout": 12,
   "season_length": 52,
+  "residual_calibration_windows": 104,
   "seed": 42,
   "max_windows": null,
   "run_holdout": true,
@@ -48,5 +49,13 @@
     "WTI Oil": "Com_CrudeOil",
     "Brent Oil": "Com_BrentCrudeOil"
   },
-  "device": "cpu"
+  "device": "cpu",
+  "nrmse_definition": "RMSE / abs(mean(y_true)) * 100",
+  "data_start": "2013-04-01",
+  "data_end": "2026-01-12",
+  "initial_train_end": "2023-10-23",
+  "tscv_eval_start": "2023-10-30",
+  "tscv_eval_end": "2025-10-20",
+  "holdout_start": "2025-10-27",
+  "holdout_end": "2026-01-12"
 }

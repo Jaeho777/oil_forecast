@@ -6,6 +6,9 @@
 - `scripts/academic_patchtst_residuals.py`
 - `shift(1)`과 외생변수를 쓰지 않고 `WTI Oil`, `Brent Oil`을 각각 별도 단변량 시계열로 평가한다.
 - 평가 프로토콜은 `expanding-window ts-cv 24개 + final holdout 12주`이다.
+- `PatchTST` baseline 자체는 각 fold의 전체 train 구간으로 학습한다.
+- residual 보정은 `train fitted residual`이 아니라 train 내부 calibration tail에서 만든 `out-of-sample residual series`로만 수행한다.
+- 따라서 baseline split과 residual calibration split을 분리해서 해석해야 하며, 제출용 채택 기준은 strict 단변량 baseline 프로토콜이다.
 - 공통 설정:
   - 전체 구간 `2013-04-01 ~ 2026-01-12` (`668` weekly observations)
   - `horizon=12`
@@ -24,6 +27,7 @@
   - `MAE`
   - `MAPE`
   - `NRMSE`
+- `NRMSE`는 이 레포에서 `RMSE / abs(mean(y_true)) * 100`으로 계산한다.
 
 실행 예시:
 
@@ -45,14 +49,35 @@ python scripts/academic_patchtst_residuals.py
 - `results/academic_patchtst_residuals/holdout_metrics_brent_table.png`
 - `results/academic_patchtst_residuals/tscv_leaderboard.png`
 - `results/academic_patchtst_residuals/holdout_leaderboard.png`
+- `results/academic_patchtst_residuals/holdout_predictions.png`
+
+보고서:
+- `REPORT_ACADEMIC_VALIDATED_CLEAN.md`
 
 보고서 템플릿:
 - `REPORT_TEMPLATE_WITH_RESIDUAL.md`
 - residual 보정모델 열이 포함된 본문 표/leaderboard 표 양식을 제공한다.
 
-## 새 다변량·외생변수 학계식 프로토콜
+## 다변량·외생변수 실험 메모
 - `scripts/academic_multivariate_exog_patchtst_residuals.py`
-- 기존 multivariate/exogenous notebook의 feature engineering 흐름을 유지하면서 `expanding-window ts-cv 24개 + final holdout 12주`로 재평가한다.
+- 기존 multivariate/exogenous notebook의 feature engineering 흐름을 유지한 exploratory 스크립트다.
+- 이 스크립트는 forecast horizon 내부에서 updated exogenous를 사용하는 exploratory 구조이므로, strict `48 -> 12 direct` 기준본으로 사용하지 않는다.
+- 따라서 이 스크립트의 결과는 위 단변량 baseline leaderboard와 같은 채택 표에 직접 합치지 않는다.
+- 기본 실행은 막아 두었고, 명시적으로 exploratory 동작을 허용할 때만 실행된다.
+- PatchTST 설정은 단변량 기준본과 동일하게 맞췄다:
+  - `input_size=48`
+  - `hidden_size=128`
+  - `attention_heads=16`
+  - `linear_hidden_size=256`
+  - `patch_len=16`
+  - `stride=8`
+  - `dropout=0.2`
+  - `encoder_layers=3`
+  - `attn_dropout=0.0`
+  - `fc_dropout=0.2`
+  - `max_steps=5000`
+  - `learning_rate=0.0001`
+  - `scaler_type=identity`
 - 모든 설명변수에는 기존 설정대로 `shift(1)`을 적용한다.
 - `WTI Oil`, `Brent Oil`을 각각 별도 타깃으로 평가한다.
 - 평가 모델:
@@ -65,7 +90,7 @@ python scripts/academic_patchtst_residuals.py
 실행 예시:
 
 ```bash
-python scripts/academic_multivariate_exog_patchtst_residuals.py
+python scripts/academic_multivariate_exog_patchtst_residuals.py --allow-exploratory-updated-exogenous
 python scripts/render_academic_result_tables.py --result-dir results/academic_multivariate_exog_patchtst_residuals
 ```
 

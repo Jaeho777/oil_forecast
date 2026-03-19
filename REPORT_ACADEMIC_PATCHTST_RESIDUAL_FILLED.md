@@ -1,3 +1,9 @@
+# Superseded
+
+> 이 문서는 초기 residual 실험 결과를 담은 구버전입니다.  
+> residual 보정이 `train fitted residual` 기반이어서 strict 채택 기준본으로 사용하지 않습니다.  
+> 제출/공유용 기준본은 [REPORT_ACADEMIC_VALIDATED_CLEAN.md](/Users/jaeholee/Desktop/oil_forecast/REPORT_ACADEMIC_VALIDATED_CLEAN.md)를 사용합니다.
+
 # 01. 핵심쟁점
 
 ---
