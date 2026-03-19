@@ -53,6 +53,7 @@ python scripts/academic_patchtst_residuals.py
 
 보고서:
 - `REPORT_ACADEMIC_VALIDATED_CLEAN.md`
+- 이 파일만 user-facing 결과표의 기준본으로 사용한다.
 
 보고서 템플릿:
 - `REPORT_TEMPLATE_WITH_RESIDUAL.md`
@@ -112,6 +113,7 @@ python scripts/render_academic_result_tables.py --result-dir results/academic_mu
 
 보고서:
 - `REPORT_ACADEMIC_MULTIVARIATE_EXOG_PATCHTST_RESIDUAL_FILLED.md`
+- 이 파일은 exploratory note만 제공하며, user-facing 결과표는 포함하지 않는다.
 
 ## 포함 내용
 - 구조 실험: `ExponentialSmoothing + NLinear + LightGBM`
