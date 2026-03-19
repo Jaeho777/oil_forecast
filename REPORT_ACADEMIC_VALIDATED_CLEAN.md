@@ -110,6 +110,7 @@ residual_params = {
 - 본 strict 기준본에서는 별도의 독립 실험모델을 두지 않았으므로, residual 보정모델은 모두 `PatchTST` baseline 위에만 결합하였다.
 - residual 보정모델은 train 내부 calibration tail에서 생성한 `out-of-sample residual series`를 입력으로 받아 `48 -> 12` direct residual forecast를 수행하였다.
 - calibration residual 생성에는 학습 window의 마지막 `104개` supervised windows를 사용했다.
+- 코드 점검 후 calibration model 학습 window에 `horizon-1` embargo를 추가하여, calibration target 구간이 학습 label에 겹치지 않도록 수정하였다.
 - 최종 비교군은 아래 네 종류로 구성하였다.
   - Bench-mark: `PatchTST`
   - Experimental: `-`
@@ -128,8 +129,8 @@ residual_params = {
 
 | Target | Bench-mark (%) | 실험모델 (%) | Residual-NLinear (%) | Residual-XGB (%) | Residual-LGBM (%) | Bench-mark 대비 최종 증감 (%) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| WTI Oil | 5.379 | - | 15.952 | 16.656 | 17.370 | 0.000 |
-| Brent Oil | 4.786 | - | 15.307 | 15.471 | 16.038 | 0.000 |
+| WTI Oil | 5.379 | - | 17.493 | 18.435 | 18.080 | 0.000 |
+| Brent Oil | 4.786 | - | 16.612 | 17.273 | 17.570 | 0.000 |
 
 - 최종 채택 모델은 두 타깃 모두 `Bench-mark(PatchTST)`였다.
 - 마지막 열은 최종 채택 모델의 `MAPE - Bench-mark MAPE`로 계산하였다.
@@ -141,13 +142,13 @@ residual_params = {
 | Target | Baseline Model | Residual Model | RMSE | MAE | MAPE | NRMSE |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | WTI Oil | PatchTST | - | 4.435 | 3.815 | 5.379 | 6.230 |
-| WTI Oil | PatchTST | NLinear | 12.305 | 11.514 | 15.952 | 16.899 |
-| WTI Oil | PatchTST | XGB | 12.649 | 12.001 | 16.656 | 17.426 |
-| WTI Oil | PatchTST | LGBM | 13.112 | 12.534 | 17.370 | 18.074 |
+| WTI Oil | PatchTST | NLinear | 13.389 | 12.742 | 17.493 | 18.245 |
+| WTI Oil | PatchTST | XGB | 13.977 | 13.407 | 18.435 | 19.065 |
+| WTI Oil | PatchTST | LGBM | 13.745 | 13.201 | 18.080 | 18.726 |
 | Brent Oil | PatchTST | - | 4.179 | 3.548 | 4.786 | 5.596 |
-| Brent Oil | PatchTST | NLinear | 12.423 | 11.689 | 15.307 | 16.153 |
-| Brent Oil | PatchTST | XGB | 12.401 | 11.809 | 15.471 | 16.141 |
-| Brent Oil | PatchTST | LGBM | 12.893 | 12.240 | 16.038 | 16.789 |
+| Brent Oil | PatchTST | NLinear | 13.371 | 12.738 | 16.612 | 17.325 |
+| Brent Oil | PatchTST | XGB | 13.753 | 13.256 | 17.273 | 17.806 |
+| Brent Oil | PatchTST | LGBM | 14.107 | 13.512 | 17.570 | 18.246 |
 
 ![ts-cv Leaderboard](results/academic_patchtst_residuals/tscv_leaderboard.png)
 
@@ -156,13 +157,13 @@ residual_params = {
 | Target | Baseline Model | Residual Model | RMSE | MAE | MAPE | NRMSE |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | WTI Oil | PatchTST | - | 1.724 | 1.466 | 2.475 | 2.933 |
-| WTI Oil | PatchTST | NLinear | 7.338 | 7.022 | 11.902 | 12.486 |
-| WTI Oil | PatchTST | XGB | 5.481 | 4.651 | 7.860 | 9.325 |
-| WTI Oil | PatchTST | LGBM | 5.136 | 4.124 | 6.949 | 8.739 |
+| WTI Oil | PatchTST | NLinear | 4.306 | 3.776 | 6.374 | 7.327 |
+| WTI Oil | PatchTST | XGB | 5.930 | 5.391 | 9.197 | 10.089 |
+| WTI Oil | PatchTST | LGBM | 4.485 | 3.910 | 6.663 | 7.631 |
 | Brent Oil | PatchTST | - | 1.723 | 1.581 | 2.515 | 2.749 |
-| Brent Oil | PatchTST | NLinear | 7.433 | 7.222 | 11.488 | 11.857 |
-| Brent Oil | PatchTST | XGB | 6.302 | 4.945 | 7.789 | 10.053 |
-| Brent Oil | PatchTST | LGBM | 6.124 | 4.673 | 7.346 | 9.769 |
+| Brent Oil | PatchTST | NLinear | 3.596 | 3.247 | 5.145 | 5.736 |
+| Brent Oil | PatchTST | XGB | 4.855 | 4.639 | 7.391 | 7.743 |
+| Brent Oil | PatchTST | LGBM | 4.625 | 4.245 | 6.751 | 7.377 |
 
 ![Summary holdout MAPE Table](results/academic_patchtst_residuals/summary_holdout_mape_table.png)
 
@@ -181,9 +182,9 @@ residual_params = {
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | Bench-mark | PatchTST | - | 1.724 | 1.466 | 2.475 | 2.933 |
 | Experimental | - | - | - | - | - | - |
-| Residual Correction | PatchTST | NLinear | 7.338 | 7.022 | 11.902 | 12.486 |
-| Residual Correction | PatchTST | XGB | 5.481 | 4.651 | 7.860 | 9.325 |
-| Residual Correction | PatchTST | LGBM | 5.136 | 4.124 | 6.949 | 8.739 |
+| Residual Correction | PatchTST | NLinear | 4.306 | 3.776 | 6.374 | 7.327 |
+| Residual Correction | PatchTST | XGB | 5.930 | 5.391 | 9.197 | 10.089 |
+| Residual Correction | PatchTST | LGBM | 4.485 | 3.910 | 6.663 | 7.631 |
 
 ![WTI Holdout Metrics Table](results/academic_patchtst_residuals/holdout_metrics_wti_table.png)
 
@@ -193,9 +194,9 @@ residual_params = {
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | Bench-mark | PatchTST | - | 1.723 | 1.581 | 2.515 | 2.749 |
 | Experimental | - | - | - | - | - | - |
-| Residual Correction | PatchTST | NLinear | 7.433 | 7.222 | 11.488 | 11.857 |
-| Residual Correction | PatchTST | XGB | 6.302 | 4.945 | 7.789 | 10.053 |
-| Residual Correction | PatchTST | LGBM | 6.124 | 4.673 | 7.346 | 9.769 |
+| Residual Correction | PatchTST | NLinear | 3.596 | 3.247 | 5.145 | 5.736 |
+| Residual Correction | PatchTST | XGB | 4.855 | 4.639 | 7.391 | 7.743 |
+| Residual Correction | PatchTST | LGBM | 4.625 | 4.245 | 6.751 | 7.377 |
 
 ![Brent Holdout Metrics Table](results/academic_patchtst_residuals/holdout_metrics_brent_table.png)
 
@@ -206,13 +207,13 @@ residual_params = {
 | Target | Base Model | Residual Model | RMSE | MAE | MAPE | NRMSE |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | WTI Oil | PatchTST | - | 4.435 | 3.815 | 5.379 | 6.230 |
-| WTI Oil | PatchTST | NLinear | 12.305 | 11.514 | 15.952 | 16.899 |
-| WTI Oil | PatchTST | XGB | 12.649 | 12.001 | 16.656 | 17.426 |
-| WTI Oil | PatchTST | LGBM | 13.112 | 12.534 | 17.370 | 18.074 |
+| WTI Oil | PatchTST | NLinear | 13.389 | 12.742 | 17.493 | 18.245 |
+| WTI Oil | PatchTST | XGB | 13.977 | 13.407 | 18.435 | 19.065 |
+| WTI Oil | PatchTST | LGBM | 13.745 | 13.201 | 18.080 | 18.726 |
 | Brent Oil | PatchTST | - | 4.179 | 3.548 | 4.786 | 5.596 |
-| Brent Oil | PatchTST | NLinear | 12.423 | 11.689 | 15.307 | 16.153 |
-| Brent Oil | PatchTST | XGB | 12.401 | 11.809 | 15.471 | 16.141 |
-| Brent Oil | PatchTST | LGBM | 12.893 | 12.240 | 16.038 | 16.789 |
+| Brent Oil | PatchTST | NLinear | 13.371 | 12.738 | 16.612 | 17.325 |
+| Brent Oil | PatchTST | XGB | 13.753 | 13.256 | 17.273 | 17.806 |
+| Brent Oil | PatchTST | LGBM | 14.107 | 13.512 | 17.570 | 18.246 |
 
 ![ts-cv Leaderboard Repeat](results/academic_patchtst_residuals/tscv_leaderboard.png)
 
@@ -227,8 +228,8 @@ residual_params = {
 ---
 
 - strict 기준본에서는 `WTI Oil`, `Brent Oil` 모두에서 `PatchTST`가 `RMSE`, `MAE`, `MAPE`, `NRMSE` 기준 최저오차를 기록했다.
-- residual 보정모델(`NLinear`, `XGB`, `LGBM`)은 `ts-cv 평균`과 `holdout` 모두에서 `PatchTST`를 이기지 못했다.
-- 따라서 현재 채택 가능한 결론은 `PatchTST` 단독 모델이며, residual correction은 신뢰 가능한 추가 성능 향상을 재현하지 못했다.
+- 코드 감사로 calibration residual leakage를 제거한 뒤, residual 보정모델(`NLinear`, `XGB`, `LGBM`)의 성능은 이전보다 더 악화되었고 `ts-cv 평균`과 `holdout` 모두에서 `PatchTST`를 이기지 못했다.
+- 따라서 현재 채택 가능한 결론은 `PatchTST` 단독 모델이며, residual correction은 수정된 strict 구현에서도 신뢰 가능한 추가 성능 향상을 재현하지 못했다.
 
 # 06. 향후 Action Plan
 

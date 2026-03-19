@@ -477,7 +477,11 @@ def make_oof_residual_series(
         horizon=config.horizon,
     )
     min_train_windows = max(4, config.horizon)
-    max_calibration = len(X_all) - min_train_windows
+    # Reserve an extra horizon-1 window embargo so the calibration model is not
+    # trained on any target timestamps that belong to the residual calibration
+    # region. Without this, the earliest calibration timestamps leak into the
+    # training labels through overlapping multi-step windows.
+    max_calibration = len(X_all) - min_train_windows - (config.horizon - 1)
     calibration_windows = min(config.residual_calibration_windows, max_calibration)
     if calibration_windows < config.input_size + 1:
         raise ValueError(
@@ -485,9 +489,21 @@ def make_oof_residual_series(
         )
 
     split_at = len(X_all) - calibration_windows
+    calibration_train_end = split_at - (config.horizon - 1)
+    if calibration_train_end < min_train_windows:
+        raise ValueError(
+            "Not enough training windows remain after applying the calibration embargo."
+        )
+    first_calibration_target_start = split_at + config.input_size
+    last_train_target_end = (
+        (calibration_train_end - 1) + config.input_size + config.horizon - 1
+    )
+    if last_train_target_end >= first_calibration_target_start:
+        raise RuntimeError("Calibration embargo failed to separate train and calibration targets.")
+
     calibration_model = fit_patchtst_from_windows(
-        X_train=X_all[:split_at],
-        Y_train=Y_all[:split_at],
+        X_train=X_all[:calibration_train_end],
+        Y_train=Y_all[:calibration_train_end],
         config=config,
         device=device,
         seed=seed + 17,
@@ -959,6 +975,7 @@ def run_experiment(config: ExperimentConfig) -> None:
     config_payload["tscv_eval_end"] = dates.iloc[cv_train_ends[-1] + config.horizon - 1].strftime("%Y-%m-%d")
     config_payload["holdout_start"] = dates.iloc[holdout_train_end].strftime("%Y-%m-%d")
     config_payload["holdout_end"] = dates.iloc[-1].strftime("%Y-%m-%d")
+    config_payload["residual_calibration_target_embargo"] = config.horizon - 1
     with (out_dir / "config.json").open("w", encoding="utf-8") as fp:
         json.dump(config_payload, fp, ensure_ascii=False, indent=2)
 
