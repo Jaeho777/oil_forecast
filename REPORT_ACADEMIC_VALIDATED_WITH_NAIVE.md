@@ -220,7 +220,7 @@ residual_params = {
 
 - `ts-cv 평균` 기준에서는 `WTI Oil`, `Brent Oil` 모두에서 `PatchTST`가 `Naive`보다 `RMSE`, `MAE`, `MAPE`, `NRMSE` 전 지표에서 우수했다.
 - 반면 `최종 holdout 12주`에서는 두 타깃 모두 `Naive`가 `PatchTST`보다 더 낮은 `MAPE`를 기록했다.
-- 코드 감사로 calibration residual leakage를 제거한 뒤, residual 보정모델(`NLinear`, `XGB`, `LGBM`)은 `Naive`와 `PatchTST`를 모두 더 분명하게 하회하는 것으로 확인되었다.
+- 코드 감사로 calibration residual leakage를 제거한 뒤, residual 보정모델(`NLinear`, `XGB`, `LGBM`)의 수치는 이전 결과와 다르게 재계산되었지만 `Naive`와 `PatchTST`를 안정적으로 상회하지는 못했다.
 - 따라서 본 비교본에서 가장 신뢰 가능한 해석은 “`PatchTST`는 평균적 일반화 성능에서는 `Naive`보다 우수하지만, 마지막 holdout 단일 구간에서는 `Naive`가 더 강했다”는 점이다.
 
 # 06. 향후 Action Plan

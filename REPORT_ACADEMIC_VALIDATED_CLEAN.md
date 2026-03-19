@@ -228,7 +228,7 @@ residual_params = {
 ---
 
 - strict 기준본에서는 `WTI Oil`, `Brent Oil` 모두에서 `PatchTST`가 `RMSE`, `MAE`, `MAPE`, `NRMSE` 기준 최저오차를 기록했다.
-- 코드 감사로 calibration residual leakage를 제거한 뒤, residual 보정모델(`NLinear`, `XGB`, `LGBM`)의 성능은 이전보다 더 악화되었고 `ts-cv 평균`과 `holdout` 모두에서 `PatchTST`를 이기지 못했다.
+- 코드 감사로 calibration residual leakage를 제거한 뒤, residual 보정모델(`NLinear`, `XGB`, `LGBM`)의 수치는 이전 결과와 다르게 재계산되었지만 `ts-cv 평균`과 `holdout` 모두에서 `PatchTST`를 이기지 못했다.
 - 따라서 현재 채택 가능한 결론은 `PatchTST` 단독 모델이며, residual correction은 수정된 strict 구현에서도 신뢰 가능한 추가 성능 향상을 재현하지 못했다.
 
 # 06. 향후 Action Plan
